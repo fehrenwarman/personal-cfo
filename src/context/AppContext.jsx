@@ -4,48 +4,57 @@ import { getUsdCadRate, clearRateCache } from '../lib/exchangeRate'
 
 const AppContext = createContext(null)
 
+const DEFAULT_ACCOUNTS = {
+  tfsa_balance: 0, tfsa_room: 0,
+  rrsp_balance: 0, rrsp_room: 0,
+  resp_balance: 0, resp_room: 0,
+  non_registered: 0,
+  savings_cad: 0,
+  savings_usd: 0,
+  bank_accounts: [],
+}
+
+async function ensureRow(table, userId, defaults = {}) {
+  const { error } = await supabase.from(table).upsert(
+    { user_id: userId, ...defaults, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id', ignoreDuplicates: true }
+  )
+  if (error) console.warn(`ensureRow ${table}:`, error.message)
+}
+
 export function AppProvider({ children }) {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Data
   const [profile, setProfile] = useState(null)
   const [accounts, setAccounts] = useState(null)
   const [transactions, setTransactions] = useState([])
   const [settings, setSettings] = useState(null)
   const [chatHistory, setChatHistory] = useState([])
 
-  // Exchange rate
   const [usdCadRate, setUsdCadRate] = useState(1.38)
   const [rateLoading, setRateLoading] = useState(false)
-
-  // UI
   const [activeTab, setActiveTab] = useState('overview')
 
-  // Auth listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
     })
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
     })
-
     return () => subscription.unsubscribe()
   }, [])
 
-  // Load exchange rate on mount
   useEffect(() => {
     setRateLoading(true)
     getUsdCadRate()
       .then(rate => setUsdCadRate(rate))
-      .catch(() => {}) // keep default
+      .catch(() => {})
       .finally(() => setRateLoading(false))
   }, [])
 
-  // Load user data when session changes
   useEffect(() => {
     if (session?.user) {
       loadAllData(session.user.id)
@@ -59,6 +68,14 @@ export function AppProvider({ children }) {
   }, [session])
 
   async function loadAllData(userId) {
+    // Bootstrap any missing rows for users who signed up before the trigger
+    await Promise.all([
+      ensureRow('profiles', userId),
+      ensureRow('accounts', userId, { data: DEFAULT_ACCOUNTS }),
+      ensureRow('settings', userId),
+      ensureRow('chat_history', userId, { messages: [] }),
+    ])
+
     const [profileRes, accountsRes, txRes, settingsRes, chatRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('user_id', userId).single(),
       supabase.from('accounts').select('*').eq('user_id', userId).single(),
@@ -68,7 +85,7 @@ export function AppProvider({ children }) {
     ])
 
     if (profileRes.data) setProfile(profileRes.data)
-    if (accountsRes.data) setAccounts(accountsRes.data.data || {})
+    if (accountsRes.data) setAccounts(accountsRes.data.data || DEFAULT_ACCOUNTS)
     if (txRes.data) setTransactions(txRes.data)
     if (settingsRes.data) setSettings(settingsRes.data)
     if (chatRes.data) setChatHistory(chatRes.data.messages || [])
@@ -85,46 +102,43 @@ export function AppProvider({ children }) {
   }, [])
 
   const saveProfile = useCallback(async (data) => {
-    if (!session?.user) return
-    const { error } = await supabase.from('profiles').upsert({
-      user_id: session.user.id,
-      ...data,
-      updated_at: new Date().toISOString(),
-    })
+    if (!session?.user) return 'Not signed in'
+    const { error } = await supabase.from('profiles').upsert(
+      { user_id: session.user.id, ...data, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    )
     if (!error) setProfile(prev => ({ ...prev, ...data }))
-    return error
+    return error?.message || null
   }, [session])
 
   const saveAccounts = useCallback(async (data) => {
-    if (!session?.user) return
-    const { error } = await supabase.from('accounts').upsert({
-      user_id: session.user.id,
-      data,
-      updated_at: new Date().toISOString(),
-    })
+    if (!session?.user) return 'Not signed in'
+    const { error } = await supabase.from('accounts').upsert(
+      { user_id: session.user.id, data, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    )
     if (!error) setAccounts(data)
-    return error
+    return error?.message || null
   }, [session])
 
   const saveSettings = useCallback(async (data) => {
-    if (!session?.user) return
-    const { error } = await supabase.from('settings').upsert({
-      user_id: session.user.id,
-      ...data,
-      updated_at: new Date().toISOString(),
-    })
+    if (!session?.user) return 'Not signed in'
+    const { error } = await supabase.from('settings').upsert(
+      { user_id: session.user.id, ...data, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    )
     if (!error) setSettings(prev => ({ ...prev, ...data }))
-    return error
+    return error?.message || null
   }, [session])
 
   const addTransactions = useCallback(async (newTxs) => {
-    if (!session?.user) return
+    if (!session?.user) return { error: 'Not signed in' }
     const rows = newTxs.map(t => ({ ...t, user_id: session.user.id }))
     const { data, error } = await supabase.from('transactions').insert(rows).select()
     if (!error && data) {
       setTransactions(prev => [...data, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)))
     }
-    return error
+    return { error: error?.message || null, count: data?.length || 0 }
   }, [session])
 
   const updateTransaction = useCallback(async (id, updates) => {
@@ -137,27 +151,23 @@ export function AppProvider({ children }) {
     if (!error) {
       setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
     }
-    return error
+    return error?.message || null
   }, [session])
 
   const clearTransactions = useCallback(async () => {
     if (!session?.user) return
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('user_id', session.user.id)
+    const { error } = await supabase.from('transactions').delete().eq('user_id', session.user.id)
     if (!error) setTransactions([])
-    return error
+    return error?.message || null
   }, [session])
 
   const saveChatHistory = useCallback(async (messages) => {
     if (!session?.user) return
     setChatHistory(messages)
-    await supabase.from('chat_history').upsert({
-      user_id: session.user.id,
-      messages,
-      updated_at: new Date().toISOString(),
-    })
+    await supabase.from('chat_history').upsert(
+      { user_id: session.user.id, messages, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    )
   }, [session])
 
   const clearAllData = useCallback(async () => {
@@ -165,35 +175,29 @@ export function AppProvider({ children }) {
     const uid = session.user.id
     await Promise.all([
       supabase.from('transactions').delete().eq('user_id', uid),
-      supabase.from('chat_history').upsert({ user_id: uid, messages: [], updated_at: new Date().toISOString() }),
-      supabase.from('accounts').upsert({ user_id: uid, data: {}, updated_at: new Date().toISOString() }),
+      supabase.from('chat_history').upsert(
+        { user_id: uid, messages: [], updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      ),
+      supabase.from('accounts').upsert(
+        { user_id: uid, data: DEFAULT_ACCOUNTS, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      ),
     ])
     setTransactions([])
     setChatHistory([])
-    setAccounts({})
+    setAccounts(DEFAULT_ACCOUNTS)
   }, [session])
 
   const value = {
-    session,
-    loading,
-    profile,
-    accounts,
-    transactions,
-    settings,
-    chatHistory,
-    usdCadRate,
-    rateLoading,
-    activeTab,
-    setActiveTab,
+    session, loading,
+    profile, accounts, transactions, settings, chatHistory,
+    usdCadRate, rateLoading,
+    activeTab, setActiveTab,
     refreshRate,
-    saveProfile,
-    saveAccounts,
-    saveSettings,
-    addTransactions,
-    updateTransaction,
-    clearTransactions,
-    saveChatHistory,
-    clearAllData,
+    saveProfile, saveAccounts, saveSettings,
+    addTransactions, updateTransaction, clearTransactions,
+    saveChatHistory, clearAllData,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

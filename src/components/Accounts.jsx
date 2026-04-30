@@ -34,6 +34,7 @@ export default function Accounts() {
   const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState(null)
   const [strategy, setStrategy] = useState(null)
   const [strategyLoading, setStrategyLoading] = useState(false)
   const [strategyError, setStrategyError] = useState(null)
@@ -66,11 +67,16 @@ export default function Accounts() {
 
   async function handleSave() {
     setSaving(true)
-    await saveAccounts({ ...form, bank_accounts: bankAccounts })
+    setSaveError(null)
+    const err = await saveAccounts({ ...form, bank_accounts: bankAccounts })
     setSaving(false)
-    setSaved(true)
-    setEditingId(null)
-    setTimeout(() => setSaved(false), 2000)
+    if (err) {
+      setSaveError(err)
+    } else {
+      setSaved(true)
+      setEditingId(null)
+      setTimeout(() => setSaved(false), 2000)
+    }
   }
 
   async function generateStrategy() {
@@ -131,6 +137,12 @@ export default function Accounts() {
           {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
         </button>
       </div>
+
+      {saveError && (
+        <div style={styles.saveError}>
+          Save failed: {saveError}. Check your Supabase connection and that the SQL setup was run.
+        </div>
+      )}
 
       <div style={styles.layout}>
         <div style={styles.leftCol}>
@@ -465,5 +477,10 @@ const styles = {
   errorBox: {
     padding: '12px', background: 'rgba(255,107,107,0.1)',
     border: '1px solid rgba(255,107,107,0.3)', borderRadius: '8px', color: '#ff6b6b', fontSize: '13px',
+  },
+  saveError: {
+    padding: '12px 16px', background: 'rgba(255,107,107,0.1)',
+    border: '1px solid rgba(255,107,107,0.3)', borderRadius: '10px',
+    color: '#ff6b6b', fontSize: '13px',
   },
 }
