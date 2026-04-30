@@ -3,6 +3,7 @@ import Auth from './components/Auth'
 import Sidebar from './components/Sidebar'
 import Overview from './components/Overview'
 import Transactions from './components/Transactions'
+import Spending from './components/Spending'
 import Accounts from './components/Accounts'
 import AskCFO from './components/AskCFO'
 import Settings from './components/Settings'
@@ -25,6 +26,7 @@ function AppInner() {
   const tabs = {
     overview: <Overview />,
     transactions: <Transactions />,
+    spending: <Spending />,
     accounts: <Accounts />,
     askcfo: <AskCFO />,
     settings: <Settings />,
