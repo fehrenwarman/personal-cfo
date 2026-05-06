@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { callClaude, buildFinancialContext } from '../lib/claude'
-import { Save, Sparkles, Plus, Trash2, Pencil, Check, X } from 'lucide-react'
+import { Save, Sparkles, Plus, Trash2, Pencil, Check, X, RefreshCcw } from 'lucide-react'
 
 const ACCOUNT_TYPES = [
   { value: 'chequing', label: 'Chequing', color: '#74b9ff', asset: true },
@@ -28,7 +28,7 @@ function newBankAccount() {
 }
 
 export default function Accounts() {
-  const { accounts, saveAccounts, profile, transactions, settings, usdCadRate } = useApp()
+  const { accounts, saveAccounts, profile, transactions, settings, usdCadRate, lmActive, lmSyncing, triggerLmSync } = useApp()
   const [form, setForm] = useState({})
   const [bankAccounts, setBankAccounts] = useState([])
   const [editingId, setEditingId] = useState(null)
@@ -152,12 +152,21 @@ export default function Accounts() {
             <div style={styles.sectionHeader}>
               <div>
                 <div style={styles.groupLabel}>Bank & Credit Accounts</div>
-                <div style={styles.sectionSub}>Chequing, savings, credit cards, lines of credit</div>
+                <div style={styles.sectionSub}>
+                  {lmActive ? 'Synced live from LunchMoney' : 'Chequing, savings, credit cards, lines of credit'}
+                </div>
               </div>
-              <button onClick={addBankAccount} style={styles.addBtn}>
-                <Plus size={13} />
-                Add Account
-              </button>
+              {lmActive ? (
+                <button onClick={triggerLmSync} disabled={lmSyncing} style={styles.addBtn}>
+                  <RefreshCcw size={13} />
+                  {lmSyncing ? 'Syncing...' : 'Sync'}
+                </button>
+              ) : (
+                <button onClick={addBankAccount} style={styles.addBtn}>
+                  <Plus size={13} />
+                  Add Account
+                </button>
+              )}
             </div>
 
             {bankAccounts.length === 0 ? (
@@ -171,7 +180,7 @@ export default function Accounts() {
 
                   return (
                     <div key={acct.id} style={styles.bankRow}>
-                      {isEditing ? (
+                      {isEditing && !lmActive ? (
                         <div style={styles.editRow}>
                           <input
                             autoFocus
@@ -231,12 +240,17 @@ export default function Accounts() {
                               <div style={styles.bankSub}>${Math.abs(acct.balance || 0).toLocaleString()} USD</div>
                             )}
                           </div>
-                          <button onClick={() => setEditingId(acct.id)} style={styles.iconBtn}>
-                            <Pencil size={13} color="#555" />
-                          </button>
-                          <button onClick={() => removeBankAccount(acct.id)} style={styles.iconBtn}>
-                            <X size={13} color="#555" />
-                          </button>
+                          {!lmActive && <>
+                            <button onClick={() => setEditingId(acct.id)} style={styles.iconBtn}>
+                              <Pencil size={13} color="#555" />
+                            </button>
+                            <button onClick={() => removeBankAccount(acct.id)} style={styles.iconBtn}>
+                              <X size={13} color="#555" />
+                            </button>
+                          </>}
+                          {lmActive && acct.source && (
+                            <span style={styles.lmSourceBadge}>{acct.source === 'plaid' ? 'Plaid' : 'LM'}</span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -409,6 +423,10 @@ const styles = {
   iconBtn: {
     background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
     display: 'flex', alignItems: 'center', borderRadius: '4px',
+  },
+  lmSourceBadge: {
+    fontSize: '10px', color: '#555', padding: '2px 6px',
+    background: '#1e1e1e', borderRadius: '4px', border: '1px solid #2a2a2a',
   },
   editInput: {
     flex: 1, padding: '7px 10px', background: '#2a2a2a',
