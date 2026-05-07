@@ -118,15 +118,17 @@ export function AppProvider({ children }) {
         fetchLMAccounts(lmKey),
       ])
 
-      const mappedTxs      = mapLMTransactions(lmTxs, rate)
+      const mappedTxs       = mapLMTransactions(lmTxs, rate)
       const mappedBankAccts = mapLMAccounts(assets, plaidAccounts)
 
-      setTransactions(mappedTxs)
-      // Merge: LunchMoney bank accounts + manual investment account fields
-      setAccounts({
-        ...investmentAccounts,
-        bank_accounts: mappedBankAccts,
-      })
+      // Apply any saved personal/business overrides
+      const txModes = investmentAccounts.tx_modes || {}
+      const txsWithModes = mappedTxs.map(tx =>
+        txModes[tx.id] ? { ...tx, mode: txModes[tx.id] } : tx
+      )
+
+      setTransactions(txsWithModes)
+      setAccounts({ ...investmentAccounts, bank_accounts: mappedBankAccts })
       setLmSyncedAt(new Date())
     } catch (err) {
       setLmError(err.message)
@@ -192,6 +194,22 @@ export function AppProvider({ children }) {
 
   const updateTransaction = useCallback(async (id, updates) => {
     if (!session?.user) return
+    // For LunchMoney transactions, persist mode overrides in accounts.tx_modes
+    if (updates.mode !== undefined) {
+      setAccounts(prev => {
+        if (!prev) return prev
+        const txModes = { ...(prev.tx_modes || {}), [id]: updates.mode }
+        const next = { ...prev, tx_modes: txModes }
+        // Fire-and-forget save to Supabase
+        supabase.from('accounts').upsert(
+          { user_id: session.user.id, data: next, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' }
+        )
+        return next
+      })
+      setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
+      return null
+    }
     const { error } = await supabase.from('transactions').update(updates)
       .eq('id', id).eq('user_id', session.user.id)
     if (!error) setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))

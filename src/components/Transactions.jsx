@@ -123,13 +123,11 @@ export default function Transactions() {
   }
 
   const toggleMode = useCallback(async (tx) => {
-    // For LunchMoney transactions, just update local state (no Supabase write)
-    if (lmActive) return
     await updateTransaction(tx.id, { mode: tx.mode === 'personal' ? 'business' : 'personal' })
-  }, [updateTransaction, lmActive])
+  }, [updateTransaction])
 
   const changeCategory = useCallback(async (tx, category) => {
-    if (lmActive) return
+    if (lmActive) return // categories come from LunchMoney
     await updateTransaction(tx.id, { category })
   }, [updateTransaction, lmActive])
 
@@ -282,9 +280,12 @@ export default function Transactions() {
                     )}
                   </td>
                   <td style={styles.td}>
-                    <span style={{ ...styles.modeBadge, ...(tx.mode === 'business' ? styles.modeBusiness : styles.modePersonal) }}>
+                    <button
+                      onClick={() => toggleMode(tx)}
+                      style={{ ...styles.modeBadge, ...(tx.mode === 'business' ? styles.modeBusiness : styles.modePersonal) }}
+                    >
                       {tx.mode === 'business' ? 'Business' : 'Personal'}
-                    </span>
+                    </button>
                   </td>
                   <td style={styles.td}>
                     <span style={styles.currency}>{tx.currency}</span>
