@@ -117,7 +117,7 @@ export function AppProvider({ children }) {
         fetchLMAccounts(lmKey),
       ])
 
-      const mappedTxs       = mapLMTransactions(lmTxs, rate, businessGroup)
+      const mappedTxs       = mapLMTransactions(lmTxs, rate, businessGroup, investmentAccounts.account_modes || {})
       const mappedBankAccts = mapLMAccounts(assets, plaidAccounts)
 
       // Apply manual overrides on top of LM auto-detected modes

@@ -39,12 +39,23 @@ export default function Accounts() {
   const [strategyLoading, setStrategyLoading] = useState(false)
   const [strategyError, setStrategyError] = useState(null)
 
+  // account_modes: { [account_id]: 'personal' | 'business' }
+  const [accountModes, setAccountModes] = useState({})
+
   useEffect(() => {
     if (accounts) {
       setForm(accounts)
       setBankAccounts(accounts.bank_accounts || [])
+      setAccountModes(accounts.account_modes || {})
     }
   }, [accounts])
+
+  function toggleAccountMode(id) {
+    setAccountModes(prev => ({
+      ...prev,
+      [id]: prev[id] === 'business' ? 'personal' : 'business',
+    }))
+  }
 
   function handleChange(key, value) {
     setForm(prev => ({ ...prev, [key]: parseFloat(value) || 0 }))
@@ -68,7 +79,7 @@ export default function Accounts() {
   async function handleSave() {
     setSaving(true)
     setSaveError(null)
-    const err = await saveAccounts({ ...form, bank_accounts: bankAccounts })
+    const err = await saveAccounts({ ...form, bank_accounts: bankAccounts, account_modes: accountModes })
     setSaving(false)
     if (err) {
       setSaveError(err)
@@ -240,6 +251,15 @@ export default function Accounts() {
                               <div style={styles.bankSub}>${Math.abs(acct.balance || 0).toLocaleString()} USD</div>
                             )}
                           </div>
+                          <button
+                            onClick={() => toggleAccountMode(acct.id)}
+                            style={{
+                              ...styles.modeToggle,
+                              ...(accountModes[acct.id] === 'business' ? styles.modeToggleBiz : styles.modeTogglePersonal),
+                            }}
+                          >
+                            {accountModes[acct.id] === 'business' ? 'Business' : 'Personal'}
+                          </button>
                           {!lmActive && <>
                             <button onClick={() => setEditingId(acct.id)} style={styles.iconBtn}>
                               <Pencil size={13} color="#555" />
@@ -248,9 +268,6 @@ export default function Accounts() {
                               <X size={13} color="#555" />
                             </button>
                           </>}
-                          {lmActive && acct.source && (
-                            <span style={styles.lmSourceBadge}>{acct.source === 'plaid' ? 'Plaid' : 'LM'}</span>
-                          )}
                         </div>
                       )}
                     </div>
@@ -424,10 +441,12 @@ const styles = {
     background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
     display: 'flex', alignItems: 'center', borderRadius: '4px',
   },
-  lmSourceBadge: {
-    fontSize: '10px', color: '#555', padding: '2px 6px',
-    background: '#1e1e1e', borderRadius: '4px', border: '1px solid #2a2a2a',
+  modeToggle: {
+    padding: '3px 10px', borderRadius: '20px', border: 'none',
+    fontSize: '11px', fontWeight: 600, cursor: 'pointer', flexShrink: 0,
   },
+  modeTogglePersonal: { background: 'rgba(116,185,255,0.15)', color: '#74b9ff' },
+  modeToggleBiz: { background: 'rgba(200,242,100,0.15)', color: '#c8f264' },
   editInput: {
     flex: 1, padding: '7px 10px', background: '#2a2a2a',
     border: '1px solid #333', borderRadius: '6px',

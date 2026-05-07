@@ -78,14 +78,19 @@ function mapCategory(lmCategory) {
 }
 
 // Convert LunchMoney transactions to our internal format
-// Note: we pass debit_as_negative=true so the API returns signed amounts
-export function mapLMTransactions(lmTxs, usdCadRate, businessGroup) {
+// accountModes: { [lm_account_id]: 'personal' | 'business' } — set in Accounts tab
+// businessGroup: category group name the user flagged as business (e.g. "Corporation")
+export function mapLMTransactions(lmTxs, usdCadRate, businessGroup, accountModes = {}) {
   return lmTxs
     .filter(tx => tx.status !== 'pending')
     .map(tx => {
       const amount     = parseFloat(tx.amount) || 0
       const currency   = (tx.currency || 'cad').toUpperCase() === 'USD' ? 'USD' : 'CAD'
       const amount_cad = currency === 'USD' ? amount * usdCadRate : amount
+
+      // Account-level mode wins first, then category group detection
+      const lmAccountId = String(tx.plaid_account_id || tx.asset_id || '')
+      const mode = accountModes[lmAccountId] || detectMode(tx, businessGroup)
 
       return {
         id:           String(tx.id),
@@ -96,7 +101,8 @@ export function mapLMTransactions(lmTxs, usdCadRate, businessGroup) {
         category:     mapCategory(tx.category_name),
         lm_category:  tx.category_name || 'Uncategorized',
         lm_group:     tx.category_group_name || '',
-        mode:         detectMode(tx, businessGroup),
+        lm_account_id: lmAccountId,
+        mode,
         amount_cad,
         account_name: tx.account_display_name || '',
       }
