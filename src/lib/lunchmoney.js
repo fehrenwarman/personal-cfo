@@ -11,7 +11,7 @@ async function lmFetch(endpoint, apiKey) {
   return res.json()
 }
 
-// Fetch last N months of transactions
+// Fetch last N months of transactions (including tags for business detection)
 export async function fetchLMTransactions(apiKey, months = 6) {
   const end = new Date()
   const start = new Date()
@@ -25,6 +25,18 @@ export async function fetchLMTransactions(apiKey, months = 6) {
     apiKey
   )
   return data.transactions || []
+}
+
+// Detect if a LunchMoney transaction is business based on:
+// 1. category_group_name contains "business"
+// 2. any tag name contains "business"
+// 3. category_name itself contains "business"
+function detectMode(tx) {
+  const check = (s) => (s || '').toLowerCase().includes('business')
+  if (check(tx.category_group_name)) return 'business'
+  if (check(tx.category_name)) return 'business'
+  if (Array.isArray(tx.tags) && tx.tags.some(t => check(t.name))) return 'business'
+  return 'personal'
 }
 
 // Fetch all account balances (Plaid-linked + manual assets)
@@ -72,7 +84,8 @@ export function mapLMTransactions(lmTxs, usdCadRate) {
         currency,
         category:     mapCategory(tx.category_name),
         lm_category:  tx.category_name || 'Uncategorized',
-        mode:         'personal',
+        lm_group:     tx.category_group_name || '',
+        mode:         detectMode(tx),
         amount_cad,
         account_name: tx.account_display_name || '',
       }

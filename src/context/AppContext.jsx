@@ -121,10 +121,11 @@ export function AppProvider({ children }) {
       const mappedTxs       = mapLMTransactions(lmTxs, rate)
       const mappedBankAccts = mapLMAccounts(assets, plaidAccounts)
 
-      // Apply any saved personal/business overrides
+      // Apply manual overrides on top of LM auto-detected modes
+      // (auto-detection uses category_group_name/tags; manual toggle wins if set)
       const txModes = investmentAccounts.tx_modes || {}
       const txsWithModes = mappedTxs.map(tx =>
-        txModes[tx.id] ? { ...tx, mode: txModes[tx.id] } : tx
+        txModes[tx.id] !== undefined ? { ...tx, mode: txModes[tx.id] } : tx
       )
 
       setTransactions(txsWithModes)
