@@ -15,10 +15,11 @@ export default function Settings() {
     province: 'BC', birth_year: '', has_kids: false, kids_ages: '',
   })
 
-  const [apiKey, setApiKey]         = useState('')
-  const [lmKey, setLmKey]           = useState('')
-  const [showApiKey, setShowApiKey] = useState(false)
-  const [showLmKey, setShowLmKey]   = useState(false)
+  const [apiKey, setApiKey]                 = useState('')
+  const [lmKey, setLmKey]                   = useState('')
+  const [lmBusinessGroup, setLmBusinessGroup] = useState('')
+  const [showApiKey, setShowApiKey]         = useState(false)
+  const [showLmKey, setShowLmKey]           = useState(false)
 
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingKeys, setSavingKeys]       = useState(false)
@@ -43,6 +44,7 @@ export default function Settings() {
   useEffect(() => {
     if (settings?.api_key) setApiKey(settings.api_key)
     if (settings?.lunchmoney_key) setLmKey(settings.lunchmoney_key)
+    if (settings?.lm_business_group) setLmBusinessGroup(settings.lm_business_group)
   }, [settings])
 
   async function handleSaveProfile(e) {
@@ -69,7 +71,7 @@ export default function Settings() {
     e.preventDefault()
     setSavingKeys(true)
     const hadLmKey = Boolean(settings?.lunchmoney_key)
-    await saveSettings({ api_key: apiKey, lunchmoney_key: lmKey })
+    await saveSettings({ api_key: apiKey, lunchmoney_key: lmKey, lm_business_group: lmBusinessGroup })
     setSavingKeys(false)
     setKeysSaved(true)
     setTimeout(() => setKeysSaved(false), 2000)
@@ -159,6 +161,17 @@ export default function Settings() {
               {lmError && <div style={styles.lmError}>{lmError}</div>}
               <Field label="Access Token">
                 <KeyInput value={lmKey} onChange={setLmKey} show={showLmKey} onToggle={() => setShowLmKey(v => !v)} placeholder="your-lunchmoney-token" />
+              </Field>
+              <Field label="Business budget/group name">
+                <input
+                  value={lmBusinessGroup}
+                  onChange={e => setLmBusinessGroup(e.target.value)}
+                  placeholder="e.g. Corporation"
+                  style={styles.input}
+                />
+                <div style={{ fontSize: '11px', color: '#555', marginTop: '4px' }}>
+                  Transactions in this LunchMoney budget group are auto-tagged Business
+                </div>
               </Field>
             </div>
 

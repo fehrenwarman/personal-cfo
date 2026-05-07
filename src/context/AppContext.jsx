@@ -96,8 +96,7 @@ export function AppProvider({ children }) {
     setChatHistory(chatData)
 
     if (settingsData?.lunchmoney_key) {
-      // LunchMoney active — merge LM bank accounts with manual investment accounts
-      await syncFromLunchMoney(settingsData.lunchmoney_key, accountsData)
+      await syncFromLunchMoney(settingsData.lunchmoney_key, accountsData, settingsData.lm_business_group)
     } else {
       // No LunchMoney — load Supabase transactions and accounts normally
       setAccounts(accountsData)
@@ -107,7 +106,7 @@ export function AppProvider({ children }) {
     }
   }
 
-  const syncFromLunchMoney = useCallback(async (lmKey, investmentAccounts) => {
+  const syncFromLunchMoney = useCallback(async (lmKey, investmentAccounts, businessGroup) => {
     setLmSyncing(true)
     setLmError(null)
     try {
@@ -118,7 +117,7 @@ export function AppProvider({ children }) {
         fetchLMAccounts(lmKey),
       ])
 
-      const mappedTxs       = mapLMTransactions(lmTxs, rate)
+      const mappedTxs       = mapLMTransactions(lmTxs, rate, businessGroup)
       const mappedBankAccts = mapLMAccounts(assets, plaidAccounts)
 
       // Apply manual overrides on top of LM auto-detected modes
@@ -142,8 +141,8 @@ export function AppProvider({ children }) {
   const triggerLmSync = useCallback(async () => {
     if (!settings?.lunchmoney_key) return
     const investAccounts = accounts ? { ...accounts, bank_accounts: [] } : DEFAULT_ACCOUNTS
-    await syncFromLunchMoney(settings.lunchmoney_key, investAccounts)
-  }, [settings?.lunchmoney_key, accounts])
+    await syncFromLunchMoney(settings.lunchmoney_key, investAccounts, settings.lm_business_group)
+  }, [settings?.lunchmoney_key, settings?.lm_business_group, accounts])
 
   const refreshRate = useCallback(async () => {
     setRateLoading(true)

@@ -27,15 +27,26 @@ export async function fetchLMTransactions(apiKey, months = 6) {
   return data.transactions || []
 }
 
-// Detect if a LunchMoney transaction is business based on:
-// 1. category_group_name contains "business"
-// 2. any tag name contains "business"
-// 3. category_name itself contains "business"
-function detectMode(tx) {
-  const check = (s) => (s || '').toLowerCase().includes('business')
-  if (check(tx.category_group_name)) return 'business'
-  if (check(tx.category_name)) return 'business'
-  if (Array.isArray(tx.tags) && tx.tags.some(t => check(t.name))) return 'business'
+// Detect if a LunchMoney transaction is business.
+// businessGroup: the exact category group name the user configured (e.g. "Corporation")
+export function detectMode(tx, businessGroup) {
+  const group    = (tx.category_group_name || '').toLowerCase().trim()
+  const category = (tx.category_name || '').toLowerCase().trim()
+  const tags     = Array.isArray(tx.tags) ? tx.tags.map(t => (t.name || '').toLowerCase()) : []
+
+  // 1. Match against user-configured business group name
+  if (businessGroup) {
+    const bg = businessGroup.toLowerCase().trim()
+    if (group === bg || group.includes(bg)) return 'business'
+  }
+
+  // 2. Common business group/category keywords as fallback
+  const businessKeywords = ['business', 'corp', 'corporation', 'company', 'work expense', 'professional', 'freelance', 'self-employed', 'llc', 'inc']
+  if (businessKeywords.some(k => group.includes(k) || category.includes(k))) return 'business'
+
+  // 3. Tags
+  if (tags.some(t => businessKeywords.some(k => t.includes(k)))) return 'business'
+
   return 'personal'
 }
 
@@ -68,11 +79,11 @@ function mapCategory(lmCategory) {
 
 // Convert LunchMoney transactions to our internal format
 // Note: we pass debit_as_negative=true so the API returns signed amounts
-export function mapLMTransactions(lmTxs, usdCadRate) {
+export function mapLMTransactions(lmTxs, usdCadRate, businessGroup) {
   return lmTxs
     .filter(tx => tx.status !== 'pending')
     .map(tx => {
-      const amount     = parseFloat(tx.amount) || 0 // already signed (negative = expense)
+      const amount     = parseFloat(tx.amount) || 0
       const currency   = (tx.currency || 'cad').toUpperCase() === 'USD' ? 'USD' : 'CAD'
       const amount_cad = currency === 'USD' ? amount * usdCadRate : amount
 
@@ -85,7 +96,7 @@ export function mapLMTransactions(lmTxs, usdCadRate) {
         category:     mapCategory(tx.category_name),
         lm_category:  tx.category_name || 'Uncategorized',
         lm_group:     tx.category_group_name || '',
-        mode:         detectMode(tx),
+        mode:         detectMode(tx, businessGroup),
         amount_cad,
         account_name: tx.account_display_name || '',
       }
