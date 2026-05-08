@@ -1,14 +1,15 @@
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
-import { LayoutDashboard, ArrowLeftRight, Wallet, PieChart, MessageSquare, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Wallet, PieChart, BarChart2, MessageSquare, Settings, LogOut } from 'lucide-react'
 
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
-  { id: 'spending', label: 'Spending', icon: PieChart },
-  { id: 'accounts', label: 'Accounts', icon: Wallet },
-  { id: 'askcfo', label: 'Ask CFO', icon: MessageSquare },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'overview',      label: 'Overview',      icon: LayoutDashboard },
+  { id: 'transactions',  label: 'Transactions',  icon: ArrowLeftRight },
+  { id: 'spending',      label: 'Spending',      icon: PieChart },
+  { id: 'reports',       label: 'Reports',       icon: BarChart2 },
+  { id: 'accounts',      label: 'Accounts',      icon: Wallet },
+  { id: 'askcfo',        label: 'Ask CFO',       icon: MessageSquare },
+  { id: 'settings',      label: 'Settings',      icon: Settings },
 ]
 
 export default function Sidebar() {

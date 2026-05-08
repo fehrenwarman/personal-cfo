@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar'
 import Overview from './components/Overview'
 import Transactions from './components/Transactions'
 import Spending from './components/Spending'
+import Reports from './components/Reports'
 import Accounts from './components/Accounts'
 import AskCFO from './components/AskCFO'
 import Settings from './components/Settings'
@@ -27,6 +28,7 @@ function AppInner() {
     overview: <Overview />,
     transactions: <Transactions />,
     spending: <Spending />,
+    reports: <Reports />,
     accounts: <Accounts />,
     askcfo: <AskCFO />,
     settings: <Settings />,
