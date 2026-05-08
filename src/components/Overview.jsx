@@ -85,7 +85,8 @@ export default function Overview() {
         messages: [{ role: 'user', content: `Based on this financial profile, generate 4 CFO insights:\n${context}` }],
         maxTokens: 800,
       })
-      const parsed = JSON.parse(text.trim())
+      const clean = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+      const parsed = JSON.parse(clean)
       setInsights(parsed)
     } catch (err) {
       setInsightsError(err.message)
