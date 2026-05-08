@@ -80,7 +80,7 @@ function mapCategory(lmCategory) {
 // Convert LunchMoney transactions to our internal format
 // accountModes: { [lm_account_id]: 'personal' | 'business' } — set in Accounts tab
 // businessGroup: category group name the user flagged as business (e.g. "Corporation")
-export function mapLMTransactions(lmTxs, usdCadRate, businessGroup, accountModes = {}) {
+export function mapLMTransactions(lmTxs, usdCadRate, businessGroup, accountModes = {}, defaultMode = null) {
   return lmTxs
     .filter(tx => tx.status !== 'pending')
     .map(tx => {
@@ -88,9 +88,9 @@ export function mapLMTransactions(lmTxs, usdCadRate, businessGroup, accountModes
       const currency   = (tx.currency || 'cad').toUpperCase() === 'USD' ? 'USD' : 'CAD'
       const amount_cad = currency === 'USD' ? amount * usdCadRate : amount
 
-      // Account-level mode wins first, then category group detection
+      // Priority: account-level toggle > defaultMode from key source > category/keyword detection
       const lmAccountId = String(tx.plaid_account_id || tx.asset_id || '')
-      const mode = accountModes[lmAccountId] || detectMode(tx, businessGroup)
+      const mode = accountModes[lmAccountId] || defaultMode || detectMode(tx, businessGroup)
 
       return {
         id:           String(tx.id),

@@ -15,11 +15,13 @@ export default function Settings() {
     province: 'BC', birth_year: '', has_kids: false, kids_ages: '',
   })
 
-  const [apiKey, setApiKey]                 = useState('')
-  const [lmKey, setLmKey]                   = useState('')
-  const [lmBusinessGroup, setLmBusinessGroup] = useState('')
-  const [showApiKey, setShowApiKey]         = useState(false)
-  const [showLmKey, setShowLmKey]           = useState(false)
+  const [apiKey, setApiKey]                     = useState('')
+  const [lmKey, setLmKey]                       = useState('')
+  const [lmKeyPersonal, setLmKeyPersonal]       = useState('')
+  const [lmBusinessGroup, setLmBusinessGroup]   = useState('')
+  const [showApiKey, setShowApiKey]             = useState(false)
+  const [showLmKey, setShowLmKey]               = useState(false)
+  const [showLmKeyPersonal, setShowLmKeyPersonal] = useState(false)
 
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingKeys, setSavingKeys]       = useState(false)
@@ -44,6 +46,7 @@ export default function Settings() {
   useEffect(() => {
     if (settings?.api_key) setApiKey(settings.api_key)
     if (settings?.lunchmoney_key) setLmKey(settings.lunchmoney_key)
+    if (settings?.lunchmoney_key_personal) setLmKeyPersonal(settings.lunchmoney_key_personal)
     if (settings?.lm_business_group) setLmBusinessGroup(settings.lm_business_group)
   }, [settings])
 
@@ -70,13 +73,12 @@ export default function Settings() {
   async function handleSaveKeys(e) {
     e.preventDefault()
     setSavingKeys(true)
-    const hadLmKey = Boolean(settings?.lunchmoney_key)
-    await saveSettings({ api_key: apiKey, lunchmoney_key: lmKey, lm_business_group: lmBusinessGroup })
+    await saveSettings({ api_key: apiKey, lunchmoney_key: lmKey, lunchmoney_key_personal: lmKeyPersonal, lm_business_group: lmBusinessGroup })
     setSavingKeys(false)
     setKeysSaved(true)
     setTimeout(() => setKeysSaved(false), 2000)
-    // If LM key was just added or changed, trigger a sync
-    if (lmKey && lmKey !== settings?.lunchmoney_key) {
+    // Trigger sync if any LM key was added or changed
+    if ((lmKey && lmKey !== settings?.lunchmoney_key) || (lmKeyPersonal && lmKeyPersonal !== settings?.lunchmoney_key_personal)) {
       await triggerLmSync()
     }
   }
@@ -159,8 +161,11 @@ export default function Settings() {
                 Connect LunchMoney to auto-import transactions and account balances. Get your access token from LunchMoney → Settings → Developers.
               </p>
               {lmError && <div style={styles.lmError}>{lmError}</div>}
-              <Field label="Access Token">
-                <KeyInput value={lmKey} onChange={setLmKey} show={showLmKey} onToggle={() => setShowLmKey(v => !v)} placeholder="your-lunchmoney-token" />
+              <Field label="Business Budget Token">
+                <KeyInput value={lmKey} onChange={setLmKey} show={showLmKey} onToggle={() => setShowLmKey(v => !v)} placeholder="your-business-lunchmoney-token" />
+              </Field>
+              <Field label="Personal Budget Token">
+                <KeyInput value={lmKeyPersonal} onChange={setLmKeyPersonal} show={showLmKeyPersonal} onToggle={() => setShowLmKeyPersonal(v => !v)} placeholder="your-personal-lunchmoney-token" />
               </Field>
               <Field label="Business budget/group name">
                 <input

@@ -42,7 +42,7 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState('overview')
 
   // Derived: whether LunchMoney is configured
-  const lmActive = Boolean(settings?.lunchmoney_key)
+  const lmActive = Boolean(settings?.lunchmoney_key || settings?.lunchmoney_key_personal)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -95,8 +95,8 @@ export function AppProvider({ children }) {
     setSettings(settingsData)
     setChatHistory(chatData)
 
-    if (settingsData?.lunchmoney_key) {
-      await syncFromLunchMoney(settingsData.lunchmoney_key, accountsData, settingsData.lm_business_group)
+    if (settingsData?.lunchmoney_key || settingsData?.lunchmoney_key_personal) {
+      await syncFromLunchMoney(settingsData.lunchmoney_key, settingsData.lunchmoney_key_personal, accountsData, settingsData.lm_business_group)
     } else {
       // No LunchMoney — load Supabase transactions and accounts normally
       setAccounts(accountsData)
@@ -106,25 +106,42 @@ export function AppProvider({ children }) {
     }
   }
 
-  const syncFromLunchMoney = useCallback(async (lmKey, investmentAccounts, businessGroup) => {
+  const syncFromLunchMoney = useCallback(async (lmKey, lmKeyPersonal, investmentAccounts, businessGroup) => {
     setLmSyncing(true)
     setLmError(null)
     try {
       const rate = await getUsdCadRate().catch(() => 1.38)
+      const accountModes = investmentAccounts.account_modes || {}
+      const txModes      = investmentAccounts.tx_modes || {}
 
-      const [lmTxs, { assets, plaidAccounts }] = await Promise.all([
-        fetchLMTransactions(lmKey, 6),
-        fetchLMAccounts(lmKey),
+      // Fetch from both keys in parallel (skip if key not set)
+      const [bizResult, personalResult] = await Promise.all([
+        lmKey
+          ? Promise.all([fetchLMTransactions(lmKey, 6), fetchLMAccounts(lmKey)])
+          : Promise.resolve([[], { assets: [], plaidAccounts: [] }]),
+        lmKeyPersonal
+          ? Promise.all([fetchLMTransactions(lmKeyPersonal, 6), fetchLMAccounts(lmKeyPersonal)])
+          : Promise.resolve([[], { assets: [], plaidAccounts: [] }]),
       ])
 
-      const mappedTxs       = mapLMTransactions(lmTxs, rate, businessGroup, investmentAccounts.account_modes || {})
-      const mappedBankAccts = mapLMAccounts(assets, plaidAccounts)
+      const [bizTxs,      { assets: bizAssets,      plaidAccounts: bizPlaid      }] = bizResult
+      const [personalTxs, { assets: personalAssets, plaidAccounts: personalPlaid }] = personalResult
 
-      // Apply manual overrides on top of LM auto-detected modes
-      // (auto-detection uses category_group_name/tags; manual toggle wins if set)
-      const txModes = investmentAccounts.tx_modes || {}
-      const txsWithModes = mappedTxs.map(tx =>
+      // Map transactions — business key defaults to 'business', personal key defaults to 'personal'
+      const mappedBiz      = mapLMTransactions(bizTxs,      rate, businessGroup, accountModes, 'business')
+      const mappedPersonal = mapLMTransactions(personalTxs, rate, null,          accountModes, 'personal')
+
+      const allTxs = [...mappedBiz, ...mappedPersonal]
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+
+      // Apply manual per-transaction overrides last
+      const txsWithModes = allTxs.map(tx =>
         txModes[tx.id] !== undefined ? { ...tx, mode: txModes[tx.id] } : tx
+      )
+
+      const mappedBankAccts = mapLMAccounts(
+        [...bizAssets, ...personalAssets],
+        [...bizPlaid, ...personalPlaid]
       )
 
       setTransactions(txsWithModes)
@@ -139,10 +156,10 @@ export function AppProvider({ children }) {
 
   // Re-sync when LM key is added/changed in settings
   const triggerLmSync = useCallback(async () => {
-    if (!settings?.lunchmoney_key) return
+    if (!settings?.lunchmoney_key && !settings?.lunchmoney_key_personal) return
     const investAccounts = accounts ? { ...accounts, bank_accounts: [] } : DEFAULT_ACCOUNTS
-    await syncFromLunchMoney(settings.lunchmoney_key, investAccounts, settings.lm_business_group)
-  }, [settings?.lunchmoney_key, settings?.lm_business_group, accounts])
+    await syncFromLunchMoney(settings.lunchmoney_key, settings.lunchmoney_key_personal, investAccounts, settings.lm_business_group)
+  }, [settings?.lunchmoney_key, settings?.lunchmoney_key_personal, settings?.lm_business_group, accounts])
 
   const refreshRate = useCallback(async () => {
     setRateLoading(true)
