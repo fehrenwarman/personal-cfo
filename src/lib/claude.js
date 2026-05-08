@@ -1,5 +1,5 @@
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-opus-4-5'
+const MODEL = 'claude-haiku-4-5-20251001'
 
 export async function callClaude({ apiKey, system, messages, maxTokens = 1024 }) {
   if (!apiKey) throw new Error('No API key configured. Add your Anthropic key in Settings.')
